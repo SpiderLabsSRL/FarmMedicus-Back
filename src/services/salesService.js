@@ -14,45 +14,14 @@ const searchProducts = async (searchQuery) => {
       p.estado,
       p.idubicacion,
       u.nombre as nombre_ubicacion,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'idvariante', v.idvariante,
-            'idproducto', v.idproducto,
-            'nombre_variante', v.nombre_variante,
-            'precio_venta', v.precio_venta,
-            'precio_compra', v.precio_compra,
-            'idcolor_disenio', v.idcolor_disenio,
-            'idcolor_luz', v.idcolor_luz,
-            'idwatt', v.idwatt,
-            'idtamano', v.idtamano,
-            'stock', v.stock,
-            'stock_minimo', v.stock_minimo,
-            'estado', v.estado,
-            'color_disenio', cd.nombre,
-            'color_luz', cl.nombre,
-            'watt', w.nombre,
-            'tamano', t.nombre,
-            'imagenes', (
-              SELECT COALESCE(array_agg(encode(iv.imagen, 'base64')), ARRAY[]::text[])
-              FROM imagenes_variantes iv
-              WHERE iv.idvariante = v.idvariante
-            )
-          ) ORDER BY v.nombre_variante
-        ) FILTER (WHERE v.idvariante IS NOT NULL),
-        '[]'::json
-      ) as variantes
+      p.imagen,
+      p.precio_venta,
+      p.stock
     FROM productos p
     LEFT JOIN ubicaciones u ON p.idubicacion = u.idubicacion
-    LEFT JOIN variantes v ON p.idproducto = v.idproducto 
-      AND v.estado = 0 
-      AND v.stock > 0
-    LEFT JOIN colores_disenio cd ON v.idcolor_disenio = cd.idcolor_disenio
-    LEFT JOIN colores_luz cl ON v.idcolor_luz = cl.idcolor_luz
-    LEFT JOIN watts w ON v.idwatt = w.idwatt
-    LEFT JOIN tamanos t ON v.idtamano = t.idtamano
     WHERE p.estado = 0 
       AND (p.nombre ILIKE $1 OR p.descripcion ILIKE $1)
+      AND p.stock > 0
     GROUP BY 
       p.idproducto,
       p.nombre,
@@ -119,22 +88,21 @@ const processSale = async (saleData, userId) => {
 
     for (const item of saleData.items) {
       const stockCheck = await client.query(
-        'SELECT stock FROM variantes WHERE idvariante = $1 AND estado = 0',
-        [item.idvariante]
+        'SELECT stock FROM productos WHERE idproducto = $1 AND estado = 0',
+        [item.idproducto]
       );
       
       if (stockCheck.rows.length === 0) {
-        throw new Error(`La variante ${item.idvariante} no existe o está inactiva`);
+        throw new Error(`El producto ${item.idproducto} no existe o está inactiva`);
       }
       
       if (stockCheck.rows[0].stock < item.cantidad) {
-        const variantInfo = await client.query(
-          'SELECT p.nombre, v.nombre_variante FROM variantes v INNER JOIN productos p ON v.idproducto = p.idproducto WHERE v.idvariante = $1',
-          [item.idvariante]
+        const productInfo = await client.query(
+          'SELECT p.nombre FROM productos p WHERE v.idproducto = $1',
+          [item.idproducto]
         );
-        const productName = variantInfo.rows[0]?.nombre || 'Producto';
-        const variantName = variantInfo.rows[0]?.nombre_variante || '';
-        throw new Error(`Stock insuficiente para ${productName} ${variantName}. Stock disponible: ${stockCheck.rows[0].stock}`);
+        const productName = productInfo.rows[0]?.nombre || 'Producto';
+        throw new Error(`Stock insuficiente para ${productName}. Stock disponible: ${stockCheck.rows[0].stock}`);
       }
     }
 
@@ -149,14 +117,14 @@ const processSale = async (saleData, userId) => {
 
     for (const item of saleData.items) {
       await client.query(
-        `INSERT INTO detalle_ventas (idventa, idvariante, cantidad, precio_unitario, subtotal_linea) 
+        `INSERT INTO detalle_ventas (idventa, idproducto, cantidad, precio_unitario, subtotal_linea) 
          VALUES ($1, $2, $3, $4, $5)`,
-        [saleId, item.idvariante, item.cantidad, item.precio_unitario, item.subtotal_linea]
+        [saleId, item.idproducto, item.cantidad, item.precio_unitario, item.subtotal_linea]
       );
 
       await client.query(
-        'UPDATE variantes SET stock = stock - $1 WHERE idvariante = $2',
-        [item.cantidad, item.idvariante]
+        'UPDATE productos SET stock = stock - $1 WHERE idproducto = $2',
+        [item.cantidad, item.idproducto]
       );
     }
 
