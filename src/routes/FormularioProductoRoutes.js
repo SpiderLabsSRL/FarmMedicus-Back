@@ -14,8 +14,8 @@ const upload = multer({
 });
 
 // Rutas específicas para formulario de productos
-router.post("/formulario-productos/productos", upload.any(), FormularioProductoController.createProducto);
-router.put("/formulario-productos/productos/:id", upload.any(), FormularioProductoController.updateProducto);
+router.post("/formulario-productos/productos", upload.single('imagen'), FormularioProductoController.createProducto);
+router.put("/formulario-productos/productos/:id", upload.single('imagen'), FormularioProductoController.updateProducto);
 router.get("/formulario-productos/productos/:id", FormularioProductoController.getProductoById);
 router.patch("/formulario-productos/productos/:id/eliminar", FormularioProductoController.deleteProducto);
 

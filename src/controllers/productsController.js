@@ -21,51 +21,6 @@ const productsController = {
     }
   },
 
-  getTipos: async (req, res) => {
-    try {
-      const tipos = await productsService.getTipos();
-      res.json(tipos);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  getColoresDiseno: async (req, res) => {
-    try {
-      const colores = await productsService.getColoresDiseno();
-      res.json(colores);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  getColoresLuz: async (req, res) => {
-    try {
-      const colores = await productsService.getColoresLuz();
-      res.json(colores);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  getWatts: async (req, res) => {
-    try {
-      const watts = await productsService.getWatts();
-      res.json(watts);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  getTamanos: async (req, res) => {
-    try {
-      const tamanos = await productsService.getTamanos();
-      res.json(tamanos);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
   // CRUD de productos - MODIFICADO para búsqueda
   getProductos: async (req, res) => {
     try {
@@ -121,46 +76,24 @@ const productsController = {
 
   createProducto: async (req, res) => {
     try {
-      // Parsear datos del formulario
       const productoData = {
         nombre: req.body.nombre,
         descripcion: req.body.descripcion,
         idubicacion: parseInt(req.body.idubicacion),
         categorias: JSON.parse(req.body.categorias || '[]'),
-        tipos: JSON.parse(req.body.tipos || '[]'),
-        variantes: []
+        precio_compra: parseFloat(req.body.precio_compra),
+        precio_venta: parseFloat(req.body.precio_venta),
+        stock: parseInt(req.body.stock)
       };
 
-      // Procesar variantes del formulario
-      const variantesKeys = Object.keys(req.body).filter(key => key.startsWith('variantes['));
-      const variantesCount = new Set(variantesKeys.map(key => key.match(/variantes\[(\d+)\]/)[1])).size;
-      
-      for (let i = 0; i < variantesCount; i++) {
-        const variante = {
-          nombre_variante: req.body[`variantes[${i}][nombre_variante]`],
-          precio_venta: parseFloat(req.body[`variantes[${i}][precio_venta]`]),
-          precio_compra: parseFloat(req.body[`variantes[${i}][precio_compra]`]),
-          idcolor_disenio: parseInt(req.body[`variantes[${i}][idcolor_disenio]`]),
-          idcolor_luz: parseInt(req.body[`variantes[${i}][idcolor_luz]`]),
-          idwatt: parseInt(req.body[`variantes[${i}][idwatt]`]),
-          idtamano: parseInt(req.body[`variantes[${i}][idtamano]`]),
-          stock: parseInt(req.body[`variantes[${i}][stock]`]),
-          stock_minimo: parseInt(req.body[`variantes[${i}][stock_minimo]`]),
-          imagenes: []
-        };
-
-        // Obtener imágenes de esta variante
-        if (req.files) {
-          const varianteImages = req.files.filter(file => 
-            file.fieldname.startsWith(`variantes[${i}][imagenes]`)
-          );
-          variante.imagenes = varianteImages;
-        }
-
-        productoData.variantes.push(variante);
+      let imagenFile = null;
+      if (req.file) {
+        imagenFile = req.file;
+      } else if (req.files && req.files.imagen) {
+        imagenFile = req.files.imagen;
       }
 
-      const producto = await productsService.createProducto(productoData, req.files);
+      const producto = await productsService.createProducto(productoData, imagenFile);
       res.status(201).json(producto);
     } catch (error) {
       console.error("Error creating producto:", error);
@@ -172,46 +105,24 @@ const productsController = {
     try {
       const { id } = req.params;
       
-      // Parsear datos del formulario
       const productoData = {
         nombre: req.body.nombre,
         descripcion: req.body.descripcion,
         idubicacion: parseInt(req.body.idubicacion),
         categorias: JSON.parse(req.body.categorias || '[]'),
-        tipos: JSON.parse(req.body.tipos || '[]'),
-        variantes: []
+        precio_compra: parseFloat(req.body.precio_compra),
+        precio_venta: parseFloat(req.body.precio_venta),
+        stock: parseInt(req.body.stock)
       };
 
-      // Procesar variantes del formulario
-      const variantesKeys = Object.keys(req.body).filter(key => key.startsWith('variantes['));
-      const variantesCount = new Set(variantesKeys.map(key => key.match(/variantes\[(\d+)\]/)[1])).size;
-      
-      for (let i = 0; i < variantesCount; i++) {
-        const variante = {
-          nombre_variante: req.body[`variantes[${i}][nombre_variante]`],
-          precio_venta: parseFloat(req.body[`variantes[${i}][precio_venta]`]),
-          precio_compra: parseFloat(req.body[`variantes[${i}][precio_compra]`]),
-          idcolor_disenio: parseInt(req.body[`variantes[${i}][idcolor_disenio]`]),
-          idcolor_luz: parseInt(req.body[`variantes[${i}][idcolor_luz]`]),
-          idwatt: parseInt(req.body[`variantes[${i}][idwatt]`]),
-          idtamano: parseInt(req.body[`variantes[${i}][idtamano]`]),
-          stock: parseInt(req.body[`variantes[${i}][stock]`]),
-          stock_minimo: parseInt(req.body[`variantes[${i}][stock_minimo]`]),
-          imagenes: []
-        };
-
-        // Obtener imágenes de esta variante
-        if (req.files) {
-          const varianteImages = req.files.filter(file => 
-            file.fieldname.startsWith(`variantes[${i}][imagenes]`)
-          );
-          variante.imagenes = varianteImages;
-        }
-
-        productoData.variantes.push(variante);
+      let imagenFile = null;
+      if (req.file) {
+        imagenFile = req.file;
+      } else if (req.files && req.files.imagen) {
+        imagenFile = req.files.imagen;
       }
 
-      const producto = await productsService.updateProducto(parseInt(id), productoData, req.files);
+      const producto = await productsService.updateProducto(parseInt(id), productoData, imagenFile);
       res.json(producto);
     } catch (error) {
       console.error("Error updating producto:", error);
@@ -229,12 +140,12 @@ const productsController = {
     }
   },
 
-  updateStockVariante: async (req, res) => {
+  updateStockProducto: async (req, res) => {
     try {
       const { id } = req.params;
       const { cantidad } = req.body;
-      const variante = await productsService.updateStockVariante(parseInt(id), cantidad);
-      res.json(variante);
+      const producto = await productsService.updateStockProducto(parseInt(id), cantidad);
+      res.json(producto);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
