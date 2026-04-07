@@ -47,7 +47,7 @@ class FormularioProductoService {
 
 			await client.query('COMMIT');
 				
-			return await productsService.getProductoById(producto.idproducto);
+			return await this.getProductoById(producto.idproducto);
 			
 		} catch (error) {
 			await client.query('ROLLBACK');
