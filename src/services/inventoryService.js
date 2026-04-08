@@ -4,27 +4,23 @@ const getInventory = async (searchTerm = null, lowMarginOnly = false, categories
   try {
     let sqlQuery = `
       SELECT DISTINCT
-        v.idvariante,
-        v.idproducto,
+        p.idproducto,
         p.nombre as nombre_producto,
-        v.nombre_variante,
-        v.precio_compra,
-        v.precio_venta,
-        v.stock,
-        v.stock_minimo,
-        v.estado,
+        p.precio_compra,
+        p.precio_venta,
+        p.stock,
+        p.stock_minimo,
+        p.estado,
         COALESCE(
           (SELECT MAX(fecha_hora) 
            FROM detalle_ventas dv 
            JOIN ventas ve ON dv.idventa = ve.idventa 
-           WHERE dv.idvariante = v.idvariante),
+           WHERE dv.idproducto = p.idproducto),
           CURRENT_TIMESTAMP
         ) as ultima_edicion
-      FROM variantes v
-      INNER JOIN productos p ON v.idproducto = p.idproducto
+      FROM productos p
       LEFT JOIN producto_categorias pc ON p.idproducto = pc.idproducto
-      LEFT JOIN producto_tipos pt ON p.idproducto = pt.idproducto
-      WHERE v.estado = 0 AND p.estado = 0
+      WHERE p.estado = 0
     `;
 
     const params = [];
@@ -32,12 +28,12 @@ const getInventory = async (searchTerm = null, lowMarginOnly = false, categories
 
     if (searchTerm) {
       paramCount++;
-      sqlQuery += ` AND (p.nombre ILIKE $${paramCount} OR v.nombre_variante ILIKE $${paramCount})`;
+      sqlQuery += ` AND p.nombre ILIKE $${paramCount}`;
       params.push(`%${searchTerm}%`);
     }
 
     if (lowMarginOnly) {
-      sqlQuery += ` AND ((v.precio_venta - v.precio_compra) / v.precio_compra * 100) < 50`;
+      sqlQuery += ` AND ((p.precio_venta - p.precio_compra) * 100 / p.precio_compra) < 50`;
     }
 
     if (categories.length > 0) {
@@ -48,14 +44,7 @@ const getInventory = async (searchTerm = null, lowMarginOnly = false, categories
       paramCount += categories.length - 1;
     }
 
-    if (types.length > 0) {
-      paramCount++;
-      const placeholders = types.map((_, index) => `$${paramCount + index}`).join(',');
-      sqlQuery += ` AND pt.idtipo IN (${placeholders})`;
-      params.push(...types);
-    }
-
-    sqlQuery += ` ORDER BY p.nombre, v.nombre_variante`;
+    sqlQuery += ` ORDER BY p.nombre`;
 
     const result = await query(sqlQuery, params);
     return result.rows;
@@ -69,10 +58,9 @@ const getLowMarginCount = async () => {
   try {
     const sqlQuery = `
       SELECT COUNT(*) as count
-      FROM variantes v
-      INNER JOIN productos p ON v.idproducto = p.idproducto
-      WHERE v.estado = 0 AND p.estado = 0
-      AND ((v.precio_venta - v.precio_compra) / v.precio_compra * 100) < 50
+      FROM productos p
+      WHERE p.estado = 0
+      AND ((p.precio_venta - p.precio_compra) * 100 / p.precio_compra) < 50
     `;
 
     const result = await query(sqlQuery);

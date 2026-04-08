@@ -6,6 +6,5 @@ const inventoryController = require("../controllers/inventoryController");
 router.get("/inventory/inventory", inventoryController.getInventory);
 router.get("/inventory/inventory/low-margin-count", inventoryController.getLowMarginCount);
 router.get("/inventory/categories", inventoryController.getCategories);
-router.get("/inventory/types", inventoryController.getTypes);
 
 module.exports = router;

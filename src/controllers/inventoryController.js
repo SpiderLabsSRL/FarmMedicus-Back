@@ -2,17 +2,15 @@ const inventoryService = require("../services/inventoryService");
 
 const getInventory = async (req, res) => {
   try {
-    const { search, lowMarginOnly, categories, types } = req.query;
+    const { search, lowMarginOnly, categories } = req.query;
     
     // Convertir categorías y tipos a arrays si existen
     const categoryArray = categories ? categories.split(',') : [];
-    const typeArray = types ? types.split(',') : [];
     
     const inventory = await inventoryService.getInventory(
       search, 
       lowMarginOnly === 'true',
-      categoryArray,
-      typeArray
+      categoryArray
     );
     
     res.json(inventory);
@@ -51,22 +49,8 @@ const getCategories = async (req, res) => {
   }
 };
 
-const getTypes = async (req, res) => {
-  try {
-    const types = await inventoryService.getTypes();
-    res.json(types);
-  } catch (error) {
-    console.error("Error en getTypes:", error);
-    res.status(500).json({ 
-      error: "Error al obtener los tipos",
-      details: error.message 
-    });
-  }
-};
-
 module.exports = {
   getInventory,
   getLowMarginCount,
-  getCategories,
-  getTypes
+  getCategories
 };
