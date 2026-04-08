@@ -93,15 +93,13 @@ const ventasService = {
         const detallesQuery = `
           SELECT 
             dv.iddetalle_venta,
-            dv.idvariante,
+            dv.idproducto,
             dv.cantidad,
             dv.precio_unitario,
             dv.subtotal_linea,
-            var.nombre_variante,
             p.nombre as nombre_producto
           FROM detalle_ventas dv
-          LEFT JOIN variantes var ON dv.idvariante = var.idvariante
-          LEFT JOIN productos p ON var.idproducto = p.idproducto
+          LEFT JOIN productos p ON dv.idproducto = p.idproducto
           WHERE dv.idventa = $1
         `;
         
@@ -207,15 +205,13 @@ const ventasService = {
         const detallesQuery = `
           SELECT 
             dv.iddetalle_venta,
-            dv.idvariante,
+            dv.idproducto,
             dv.cantidad,
             dv.precio_unitario,
             dv.subtotal_linea,
-            var.nombre_variante,
             p.nombre as nombre_producto
           FROM detalle_ventas dv
-          LEFT JOIN variantes var ON dv.idvariante = var.idvariante
-          LEFT JOIN productos p ON var.idproducto = p.idproducto
+          LEFT JOIN productos p ON dv.idproducto = p.idproducto
           WHERE dv.idventa = $1
         `;
         
