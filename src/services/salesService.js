@@ -1,6 +1,6 @@
 const { query, pool } = require("../../db");
 
-const searchProducts = async (searchQuery) => {
+const searchProducts = async (searchQuery, withoutStock = true) => {
   if (!searchQuery || searchQuery.trim() === "") {
     return [];
   }
@@ -21,7 +21,7 @@ const searchProducts = async (searchQuery) => {
     LEFT JOIN ubicaciones u ON p.idubicacion = u.idubicacion
     WHERE p.estado = 0 
       AND (p.nombre ILIKE $1 OR p.descripcion ILIKE $1)
-      AND p.stock > 0
+      ${withoutStock ? 'AND p.stock > 0' : ''}
     GROUP BY 
       p.idproducto,
       p.nombre,

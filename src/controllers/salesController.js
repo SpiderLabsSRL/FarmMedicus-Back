@@ -2,8 +2,13 @@ const salesService = require("../services/salesService");
 
 const searchProducts = async (req, res) => {
   try {
-    const { q } = req.query;
-    const products = await salesService.searchProducts(q);
+    const { q, withoutStock } = req.query;
+    
+    const withoutStockParam = withoutStock !== undefined 
+      ? withoutStock === 'true' 
+      : true;
+    
+    const products = await salesService.searchProducts(q, withoutStockParam);
     res.json(products);
   } catch (error) {
     console.error("Error in searchProducts:", error);

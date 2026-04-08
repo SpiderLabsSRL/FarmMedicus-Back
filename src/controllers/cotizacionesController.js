@@ -1,37 +1,6 @@
 const cotizacionesService = require("../services/cotizacionesService");
 
 const cotizacionesController = {
-  // Obtener todos los productos con variantes
-  getProductos: async (req, res) => {
-    try {
-      const productos = await cotizacionesService.getProductosConVariantes();
-      res.json(productos);
-    } catch (error) {
-      console.error("Error en getProductos:", error);
-      res.status(500).json({ 
-        error: "Error al obtener productos", 
-        details: error.message 
-      });
-    }
-  },
-
-  // Buscar productos - VERSIÓN CORREGIDA
-  searchProductos: async (req, res) => {
-    try {
-      const { q } = req.query;
-      if (!q) {
-        return res.status(400).json({ error: "Query parameter 'q' is required" });
-      }
-      
-      const productos = await cotizacionesService.searchProductos(q);
-      res.json(productos);
-    } catch (error) {
-      console.error("Error en searchProductos:", error);
-      // Enviar array vacío en lugar de error para que el frontend no falle
-      res.json([]);
-    }
-  },
-
   // Crear cotización
   createCotizacion: async (req, res) => {
     try {
