@@ -15,7 +15,7 @@ exports.obtenerPagosPendientes = async () => {
         COALESCE(
           JSON_AGG(
             JSON_BUILD_OBJECT(
-              'idproducto', v.idproducto,
+              'idproducto', p.idproducto,
               'nombre', p.nombre,
               'precio_unitario', dc.precio_unitario,
               'cantidad', dc.cantidad,
@@ -30,7 +30,7 @@ exports.obtenerPagosPendientes = async () => {
                 LIMIT 1
               )
             )
-          ) FILTER (WHERE v.idproducto IS NOT NULL),
+          ) FILTER (WHERE p.idproducto IS NOT NULL),
           '[]'::json
         ) as productos
       FROM cotizaciones c
