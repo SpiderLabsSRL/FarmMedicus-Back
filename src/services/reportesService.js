@@ -4,22 +4,20 @@ const obtenerProductosMasVendidos = async (mes, año) => {
   try {
     const sql = `
       SELECT 
-        v.idvariante,
+        p.idproducto,
         p.nombre as nombre_producto,
-        v.nombre_variante,
         c.nombre as categoria,
         SUM(dv.cantidad) as cantidad_vendida,
         SUM(dv.subtotal_linea) as ingresos
       FROM detalle_ventas dv
       INNER JOIN ventas ve ON dv.idventa = ve.idventa
-      INNER JOIN variantes v ON dv.idvariante = v.idvariante
-      INNER JOIN productos p ON v.idproducto = p.idproducto
+      INNER JOIN productos p ON dv.idproducto = p.idproducto
       INNER JOIN producto_categorias pc ON p.idproducto = pc.idproducto
       INNER JOIN categorias c ON pc.idcategoria = c.idcategoria
       WHERE EXTRACT(MONTH FROM ve.fecha_hora) = $1 
         AND EXTRACT(YEAR FROM ve.fecha_hora) = $2
-        AND v.estado = 0
-      GROUP BY v.idvariante, p.nombre, v.nombre_variante, c.nombre
+        AND p.estado = 0
+      GROUP BY p.idproducto, p.nombre, c.nombre
       ORDER BY cantidad_vendida DESC
       LIMIT 10
     `;
@@ -37,25 +35,24 @@ const obtenerProductosSinVender = async () => {
     const sql = `
       WITH ultimas_ventas AS (
         SELECT 
-          dv.idvariante,
+          dv.idproducto,
           MAX(ve.fecha_hora) as ultima_fecha_venta
         FROM detalle_ventas dv
         INNER JOIN ventas ve ON dv.idventa = ve.idventa
-        GROUP BY dv.idvariante
+        GROUP BY dv.idproducto
       ),
       productos_agregados AS (
         SELECT 
-          v.idvariante,
+          p.idproducto,
           MIN(ve.fecha_hora) as fecha_agregado
-        FROM variantes v
-        LEFT JOIN detalle_ventas dv ON v.idvariante = dv.idvariante
+        FROM producto p
+        LEFT JOIN detalle_ventas dv ON p.idproducto = dv.idproducto
         LEFT JOIN ventas ve ON dv.idventa = ve.idventa
-        GROUP BY v.idvariante
+        GROUP BY p.idproducto
       )
       SELECT 
-        v.idvariante,
+        p.idproducto,
         p.nombre as nombre_producto,
-        v.nombre_variante,
         c.nombre as categoria,
         pa.fecha_agregado,
         uv.ultima_fecha_venta,
@@ -65,13 +62,12 @@ const obtenerProductosSinVender = async () => {
           ELSE 
             EXTRACT(DAY FROM (CURRENT_DATE - pa.fecha_agregado))
         END as dias_sin_vender
-      FROM variantes v
-      INNER JOIN productos p ON v.idproducto = p.idproducto
+      FROM productos p
       INNER JOIN producto_categorias pc ON p.idproducto = pc.idproducto
       INNER JOIN categorias c ON pc.idcategoria = c.idcategoria
-      INNER JOIN productos_agregados pa ON v.idvariante = pa.idvariante
-      LEFT JOIN ultimas_ventas uv ON v.idvariante = uv.idvariante
-      WHERE v.estado = 0
+      INNER JOIN productos_agregados pa ON p.idproducto = pa.idproducto
+      LEFT JOIN ultimas_ventas uv ON p.idproducto = uv.idproducto
+      WHERE p.estado = 0
         AND (
           uv.ultima_fecha_venta IS NULL 
           OR uv.ultima_fecha_venta < CURRENT_DATE - INTERVAL '3 months'
@@ -92,31 +88,28 @@ const obtenerAnalisisProductos = async (mes, año) => {
   try {
     const sql = `
       SELECT 
-        v.idvariante,
+        p.idproducto,
         p.nombre as nombre_producto,
-        v.nombre_variante,
         c.nombre as categoria,
-        v.precio_venta,
-        v.precio_compra,
+        p.precio_venta,
+        p.precio_compra,
         SUM(dv.cantidad) as cantidad_vendida,
         EXTRACT(MONTH FROM ve.fecha_hora) as mes,
         EXTRACT(YEAR FROM ve.fecha_hora) as año
       FROM detalle_ventas dv
       INNER JOIN ventas ve ON dv.idventa = ve.idventa
-      INNER JOIN variantes v ON dv.idvariante = v.idvariante
-      INNER JOIN productos p ON v.idproducto = p.idproducto
+      INNER JOIN productos p ON dv.idproducto = p.idproducto
       INNER JOIN producto_categorias pc ON p.idproducto = pc.idproducto
       INNER JOIN categorias c ON pc.idcategoria = c.idcategoria
       WHERE EXTRACT(MONTH FROM ve.fecha_hora) = $1 
         AND EXTRACT(YEAR FROM ve.fecha_hora) = $2
-        AND v.estado = 0
+        AND p.estado = 0
       GROUP BY 
-        v.idvariante, 
+        p.idproducto, 
         p.nombre, 
-        v.nombre_variante, 
         c.nombre, 
-        v.precio_venta, 
-        v.precio_compra,
+        p.precio_venta, 
+        p.precio_compra,
         EXTRACT(MONTH FROM ve.fecha_hora),
         EXTRACT(YEAR FROM ve.fecha_hora)
       ORDER BY cantidad_vendida DESC
