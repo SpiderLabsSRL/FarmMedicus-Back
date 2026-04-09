@@ -15,39 +15,28 @@ exports.obtenerPagosPendientes = async () => {
         COALESCE(
           JSON_AGG(
             JSON_BUILD_OBJECT(
-              'idvariante', v.idvariante,
-              'nombre', p.nombre || COALESCE(' - ' || v.nombre_variante, ''),
+              'idproducto', v.idproducto,
+              'nombre', p.nombre,
               'precio_unitario', dc.precio_unitario,
               'cantidad', dc.cantidad,
               'cantidad_pendiente', COALESCE(ppc.cantidad_pendiente, dc.cantidad),
-              'color_disenio', cd.nombre,
-              'color_luz', cl.nombre,
-              'watt', w.nombre,
-              'tamano', t.nombre,
               'imagen', (
                 SELECT 
                   CASE 
-                    WHEN iv.imagen IS NOT NULL THEN 
-                      'data:image/jpeg;base64,' || encode(iv.imagen, 'base64')
+                    WHEN p.imagen IS NOT NULL THEN 
+                      'data:image/jpeg;base64,' || encode(p.imagen, 'base64')
                     ELSE NULL
                   END
-                FROM imagenes_variantes iv 
-                WHERE iv.idvariante = v.idvariante 
                 LIMIT 1
               )
             )
-          ) FILTER (WHERE v.idvariante IS NOT NULL),
+          ) FILTER (WHERE v.idproducto IS NOT NULL),
           '[]'::json
         ) as productos
       FROM cotizaciones c
       INNER JOIN detalle_cotizaciones dc ON c.idcotizacion = dc.idcotizacion
-      INNER JOIN variantes v ON dc.idvariante = v.idvariante
-      INNER JOIN productos p ON v.idproducto = p.idproducto
-      LEFT JOIN colores_disenio cd ON v.idcolor_disenio = cd.idcolor_disenio
-      LEFT JOIN colores_luz cl ON v.idcolor_luz = cl.idcolor_luz
-      LEFT JOIN watts w ON v.idwatt = w.idwatt
-      LEFT JOIN tamanos t ON v.idtamano = t.idtamano
-      LEFT JOIN productos_pendientes_cotizacion ppc ON c.idcotizacion = ppc.idcotizacion AND v.idvariante = ppc.idvariante
+      INNER JOIN productos p ON dc.idproducto = p.idproducto
+      LEFT JOIN productos_pendientes_cotizacion ppc ON c.idcotizacion = ppc.idcotizacion AND p.idproducto = ppc.idproducto
       WHERE c.estado = 0 
         AND (c.saldo > 0 OR EXISTS (
           SELECT 1 FROM productos_pendientes_cotizacion ppc2 
@@ -187,30 +176,30 @@ exports.actualizarEntregasProductos = async ({ idcotizacion, productos, montoPag
 
     // 1. Procesar entregas de productos (si hay cantidades > 0)
     for (const producto of productos) {
-      const { idvariante, cantidadEntregada } = producto;
+      const { idproducto, cantidadEntregada } = producto;
 
       // Si no hay cantidad entregada, continuar con el siguiente producto
       if (!cantidadEntregada || cantidadEntregada <= 0) continue;
 
       productosEntregados = true;
 
-      console.log(`Procesando entrega: variante ${idvariante}, cantidad: ${cantidadEntregada}`);
+      console.log(`Procesando entrega: producto ${idproducto}, cantidad: ${cantidadEntregada}`);
 
       // Verificar stock
       const stockResult = await client.query(
-        'SELECT stock, nombre_variante FROM variantes WHERE idvariante = $1',
-        [idvariante]
+        'SELECT stock, nombre FROM productos WHERE idproducto = $1',
+        [idproducto]
       );
 
       if (stockResult.rows.length === 0) {
-        throw new Error(`La variante ${idvariante} no existe`);
+        throw new Error(`El producto ${idproducto} no existe`);
       }
 
       const stockActual = stockResult.rows[0].stock;
-      const nombreVariante = stockResult.rows[0].nombre_variante;
+      const nombreProducto = stockResult.rows[0].nombre;
 
       if (cantidadEntregada > stockActual) {
-        throw new Error(`Stock insuficiente para ${nombreVariante}. Stock disponible: ${stockActual}`);
+        throw new Error(`Stock insuficiente para ${nombreProducto}. Stock disponible: ${stockActual}`);
       }
 
       // Obtener información del producto y cantidad pendiente
@@ -219,15 +208,14 @@ exports.actualizarEntregasProductos = async ({ idcotizacion, productos, montoPag
                 COALESCE(ppc.cantidad_pendiente, dc.cantidad) as cantidad_pendiente,
                 p.nombre as producto_nombre
          FROM detalle_cotizaciones dc
-         INNER JOIN variantes v ON dc.idvariante = v.idvariante
-         INNER JOIN productos p ON v.idproducto = p.idproducto
-         LEFT JOIN productos_pendientes_cotizacion ppc ON dc.idcotizacion = ppc.idcotizacion AND dc.idvariante = ppc.idvariante
-         WHERE dc.idcotizacion = $1 AND dc.idvariante = $2`,
-        [idcotizacion, idvariante]
+         INNER JOIN productos p ON dc.idproducto = p.idproducto
+         LEFT JOIN productos_pendientes_cotizacion ppc ON dc.idcotizacion = ppc.idcotizacion AND dc.idproducto = ppc.idproducto
+         WHERE dc.idcotizacion = $1 AND dc.idproducto = $2`,
+        [idcotizacion, idproducto]
       );
 
       if (detalleResult.rows.length === 0) {
-        throw new Error(`Producto ${idvariante} no encontrado en la cotización`);
+        throw new Error(`Producto ${idproducto} no encontrado en la cotización`);
       }
 
       const detalle = detalleResult.rows[0];
@@ -245,40 +233,40 @@ exports.actualizarEntregasProductos = async ({ idcotizacion, productos, montoPag
 
       // Actualizar o insertar en productos_pendientes_cotizacion
       const pendienteExistente = await client.query(
-        'SELECT 1 FROM productos_pendientes_cotizacion WHERE idcotizacion = $1 AND idvariante = $2',
-        [idcotizacion, idvariante]
+        'SELECT 1 FROM productos_pendientes_cotizacion WHERE idcotizacion = $1 AND idproducto = $2',
+        [idcotizacion, idproducto]
       );
 
       if (pendienteExistente.rows.length > 0) {
         await client.query(
-          'UPDATE productos_pendientes_cotizacion SET cantidad_pendiente = $1 WHERE idcotizacion = $2 AND idvariante = $3',
-          [nuevaCantidadPendiente, idcotizacion, idvariante]
+          'UPDATE productos_pendientes_cotizacion SET cantidad_pendiente = $1 WHERE idcotizacion = $2 AND idproducto = $3',
+          [nuevaCantidadPendiente, idcotizacion, idproducto]
         );
       } else {
         await client.query(
-          'INSERT INTO productos_pendientes_cotizacion (idcotizacion, idvariante, cantidad_pendiente) VALUES ($1, $2, $3)',
-          [idcotizacion, idvariante, nuevaCantidadPendiente]
+          'INSERT INTO productos_pendientes_cotizacion (idcotizacion, idproducto, cantidad_pendiente) VALUES ($1, $2, $3)',
+          [idcotizacion, idproducto, nuevaCantidadPendiente]
         );
       }
 
       // Actualizar stock del producto
       await client.query(
-        'UPDATE variantes SET stock = stock - $1 WHERE idvariante = $2',
-        [cantidadEntregada, idvariante]
+        'UPDATE productos SET stock = stock - $1 WHERE idproducto = $2',
+        [cantidadEntregada, idproducto]
       );
 
       console.log(`Stock actualizado para ${productoNombre}: -${cantidadEntregada} unidades`);
 
       // Agregar item para la venta (solo para registrar los productos entregados)
       itemsVenta.push({
-        idvariante,
+        idproducto: idproducto,
         cantidad: cantidadEntregada,
         precio_unitario: precioUnitario,
         subtotal_linea: precioUnitario * cantidadEntregada
       });
 
       // Agregar a descripción
-      descripcionItems.push(`${cantidadEntregada} ${productoNombre} ${nombreVariante}`);
+      descripcionItems.push(`${cantidadEntregada} ${productoNombre}`);
     }
 
     console.log('Productos procesados. Entregados:', productosEntregados);
@@ -319,9 +307,9 @@ exports.actualizarEntregasProductos = async ({ idcotizacion, productos, montoPag
       if (productosEntregados && itemsVenta.length > 0) {
         for (const item of itemsVenta) {
           await client.query(
-            `INSERT INTO detalle_ventas (idventa, idvariante, cantidad, precio_unitario, subtotal_linea) 
+            `INSERT INTO detalle_ventas (idventa, idproducto, cantidad, precio_unitario, subtotal_linea) 
              VALUES ($1, $2, $3, $4, $5)`,
-            [idventa, item.idvariante, item.cantidad, item.precio_unitario, item.subtotal_linea]
+            [idventa, item.idproducto, item.cantidad, item.precio_unitario, item.subtotal_linea]
           );
         }
         console.log('Detalles de venta insertados:', itemsVenta.length, 'items');
