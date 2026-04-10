@@ -3,11 +3,10 @@ const salesService = require("../services/salesService");
 const searchProducts = async (req, res) => {
   try {
     const { q, withoutStock } = req.query;
-    
-    const withoutStockParam = withoutStock !== undefined 
-      ? withoutStock === 'true' 
-      : true;
-    
+
+    const withoutStockParam =
+      withoutStock !== undefined ? withoutStock === "true" : true;
+
     const products = await salesService.searchProducts(q, withoutStockParam);
     res.json(products);
   } catch (error) {
@@ -29,9 +28,9 @@ const getCashStatus = async (req, res) => {
 const processSale = async (req, res) => {
   try {
     const saleData = req.body;
-    
-    const userId = saleData.userId || req.headers['user-id'];
-    
+
+    const userId = saleData.userId || req.headers["user-id"];
+
     if (!userId) {
       return res.status(401).json({ error: "Se requiere ID de usuario" });
     }
@@ -47,5 +46,5 @@ const processSale = async (req, res) => {
 module.exports = {
   searchProducts,
   getCashStatus,
-  processSale
+  processSale,
 };

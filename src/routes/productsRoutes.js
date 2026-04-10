@@ -14,15 +14,17 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, gif)'));
+      cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)"));
     }
-  }
+  },
 });
 
 // Rutas para opciones de selección
@@ -32,10 +34,19 @@ router.get("/categorias", productsController.getCategorias);
 // Rutas para productos
 router.get("/productos", productsController.getProductos); // Búsqueda por query param
 router.get("/todos", productsController.getTodosProductos); // Todos los productos
+router.get("/todos-select", productsController.getTodosProductosSelect); // Solo id y nombre para selects
 router.get("/buscar", productsController.buscarProductos); // Búsqueda específica
 router.get("/productos/:id", productsController.getProductoById);
-router.post("/productos", upload.single('imagen'), productsController.createProducto);
-router.put("/productos/:id", upload.single('imagen'), productsController.updateProducto);
+router.post(
+  "/productos",
+  upload.single("imagen"),
+  productsController.createProducto,
+);
+router.put(
+  "/productos/:id",
+  upload.single("imagen"),
+  productsController.updateProducto,
+);
 router.delete("/productos/:id", productsController.deleteProducto);
 
 // Rutas para variantes
