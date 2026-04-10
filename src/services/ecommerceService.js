@@ -40,10 +40,10 @@ const deleteCarrusel = async (id) => {
   }
 };
 
-const getCarruselVariantes = async (idCarrusel) => {
+const getCarruselProductos = async (idCarrusel) => {
   const result = await query(
-    `SELECT cv.idcarrusel_variante, cv.idcarrusel, cv.idproducto 
-     FROM carrusel_variantes cv 
+    `SELECT cv.idcarrusel_producto, cv.idcarrusel, cv.idproducto 
+     FROM carrusel_productos cv 
      INNER JOIN carruseles c ON cv.idcarrusel = c.idcarrusel 
      WHERE cv.idcarrusel = $1 AND c.estado = 0`,
     [idCarrusel]
@@ -51,7 +51,7 @@ const getCarruselVariantes = async (idCarrusel) => {
   return result.rows;
 };
 
-const addCarruselVariantes = async (idCarrusel, productos) => {
+const addCarruselProductos = async (idCarrusel, productos) => {
   // Verificar que el carrusel existe y está activo
   const carruselCheck = await query(
     "SELECT idcarrusel FROM carruseles WHERE idcarrusel = $1 AND estado = 0",
@@ -76,7 +76,7 @@ const addCarruselVariantes = async (idCarrusel, productos) => {
     const params = productos.flatMap(idProducto => [idCarrusel, idProducto]);
     
     const queryText = `
-      INSERT INTO carrusel_variantes (idcarrusel, idproducto) 
+      INSERT INTO carrusel_productos (idcarrusel, idproducto) 
       VALUES ${values} 
       ON CONFLICT (idcarrusel, idproducto) DO NOTHING
     `;
@@ -85,7 +85,7 @@ const addCarruselVariantes = async (idCarrusel, productos) => {
   }
 };
 
-const updateCarruselVariantes = async (idCarrusel, productos) => {
+const updateCarruselProductos = async (idCarrusel, productos) => {
   // Verificar que el carrusel existe y está activo
   const carruselCheck = await query(
     "SELECT idcarrusel FROM carruseles WHERE idcarrusel = $1 AND estado = 0",
@@ -107,9 +107,8 @@ const updateCarruselVariantes = async (idCarrusel, productos) => {
   try {
     await client.query('BEGIN');
     
-    // Eliminar todas las variantes actuales
     await client.query(
-      "DELETE FROM carrusel_variantes WHERE idcarrusel = $1",
+      "DELETE FROM carrusel_productos WHERE idcarrusel = $1",
       [idCarrusel]
     );
     
@@ -122,7 +121,7 @@ const updateCarruselVariantes = async (idCarrusel, productos) => {
       const params = productos.flatMap(idProducto => [idCarrusel, idProducto]);
       
       const queryText = `
-        INSERT INTO carrusel_variantes (idcarrusel, idproducto) 
+        INSERT INTO carrusel_productos (idcarrusel, idproducto) 
         VALUES ${values}
       `;
       
@@ -140,7 +139,7 @@ const updateCarruselVariantes = async (idCarrusel, productos) => {
 
 const getProductos = async () => {
   const result = await query(
-    "SELECT idproducto, nombre, descripcion, idubicacion, estado FROM productos WHERE estado = 0 ORDER BY idproducto DESC"
+    "SELECT idproducto, nombre, descripcion, idubicacion, estado, precio_venta, precio_compra, stock, stock_minimo, imagen FROM productos WHERE estado = 0 ORDER BY idproducto DESC"
   );
   return result.rows;
 };
@@ -156,73 +155,6 @@ const getProductoCategorias = async (idProducto) => {
   return result.rows.map(row => row.nombre);
 };
 
-const getProductoTipos = async (idProducto) => {
-  const result = await query(
-    `SELECT t.nombre 
-     FROM tipos t 
-     INNER JOIN producto_tipos pt ON t.idtipo = pt.idtipo 
-     WHERE pt.idproducto = $1 AND t.estado = 0`,
-    [idProducto]
-  );
-  return result.rows.map(row => row.nombre);
-};
-
-const getProductoVariantes = async (idProducto) => {
-  const result = await query(
-    `SELECT idvariante, idproducto, nombre_variante, precio_venta, precio_compra, 
-            idcolor_disenio, idcolor_luz, idwatt, idtamano, stock, stock_minimo, estado 
-     FROM variantes 
-     WHERE idproducto = $1 AND estado = 0 
-     ORDER BY idvariante`,
-    [idProducto]
-  );
-  return result.rows;
-};
-
-const getVarianteImagenes = async (idVariante) => {
-  const result = await query(
-    "SELECT idimagen, idvariante, ENCODE(imagen, 'base64') as imagen FROM imagenes_variantes WHERE idvariante = $1",
-    [idVariante]
-  );
-  return result.rows;
-};
-
-const getColorDisenio = async (id) => {
-  // Si el ID es null o no válido, retornar objeto por defecto
-  if (!id || typeof id !== 'number' || isNaN(id) || id <= 0) {
-    return {
-      idcolor_disenio: null,
-      nombre: "Sin color",
-      estado: 0
-    };
-  }
-  
-  try {
-    const result = await query(
-      "SELECT idcolor_disenio, nombre, estado FROM colores_disenio WHERE idcolor_disenio = $1 AND estado = 0",
-      [id]
-    );
-    
-    // Si no se encuentra el color, NO lanzar error, retornar objeto por defecto
-    if (result.rows.length === 0) {
-      return {
-        idcolor_disenio: id,
-        nombre: "Color no disponible",
-        estado: 0
-      };
-    }
-    
-    return result.rows[0];
-  } catch (error) {
-    console.error("Error en getColorDisenio service:", error);
-    // En caso de error de base de datos, retornar objeto por defecto
-    return {
-      idcolor_disenio: id,
-      nombre: "Error en base de datos",
-      estado: 0
-    };
-  }
-};
 const searchProductos = async (searchTerm) => {
   const searchPattern = `%${searchTerm}%`;
   
@@ -231,10 +163,6 @@ const searchProductos = async (searchTerm) => {
      FROM productos p
      LEFT JOIN producto_categorias pc ON p.idproducto = pc.idproducto
      LEFT JOIN categorias c ON pc.idcategoria = c.idcategoria
-     LEFT JOIN producto_tipos pt ON p.idproducto = pt.idproducto
-     LEFT JOIN tipos t ON pt.idtipo = t.idtipo
-     LEFT JOIN variantes v ON p.idproducto = v.idproducto
-     LEFT JOIN colores_disenio cd ON v.idcolor_disenio = cd.idcolor_disenio
      WHERE p.estado = 0 
        AND (p.nombre ILIKE $1 
          OR p.descripcion ILIKE $1
@@ -254,14 +182,10 @@ module.exports = {
   createCarrusel,
   updateCarrusel,
   deleteCarrusel,
-  getCarruselVariantes,
-  addCarruselVariantes,
-  updateCarruselVariantes,
+  getCarruselProductos,
+  addCarruselProductos,
+  updateCarruselProductos,
   getProductos,
   getProductoCategorias,
-  getProductoTipos,
-  getProductoVariantes,
-  getVarianteImagenes,
-  getColorDisenio,
   searchProductos
 };

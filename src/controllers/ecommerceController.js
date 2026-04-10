@@ -65,18 +65,18 @@ const deleteCarrusel = async (req, res) => {
   }
 };
 
-const getCarruselVariantes = async (req, res) => {
+const getCarruselProductos = async (req, res) => {
   try {
     const { id } = req.params;
-    const variantes = await ecommerceService.getCarruselVariantes(id);
-    res.json(variantes);
+    const productos = await ecommerceService.getCarruselProductos(id);
+    res.json(productos);
   } catch (error) {
-    console.error("Error en getCarruselVariantes:", error);
+    console.error("Error en getCarruselProductos:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
-const addCarruselVariantes = async (req, res) => {
+const addCarruselProductos = async (req, res) => {
   try {
     const { id } = req.params;
     const { productos } = req.body;
@@ -91,13 +91,13 @@ const addCarruselVariantes = async (req, res) => {
       return res.status(400).json({ error: "Los IDs de productos deben ser números válidos" });
     }
     
-    await ecommerceService.addCarruselVariantes(id, productos);
+    await ecommerceService.addCarruselProductos(id, productos);
     res.status(201).json({ 
       message: "Productos agregados al carrusel exitosamente",
       productosAgregados: productos.length
     });
   } catch (error) {
-    console.error("Error en addCarruselVariantes:", error);
+    console.error("Error en addCarruselProductos:", error);
     
     if (error.message.includes("no encontrado") || error.message.includes("inactivo")) {
       return res.status(404).json({ error: error.message });
@@ -107,7 +107,7 @@ const addCarruselVariantes = async (req, res) => {
   }
 };
 
-const updateCarruselVariantes = async (req, res) => {
+const updateCarruselProductos = async (req, res) => {
   try {
     const { id } = req.params;
     const { productos } = req.body;
@@ -122,13 +122,13 @@ const updateCarruselVariantes = async (req, res) => {
       return res.status(400).json({ error: "Los IDs de productos deben ser números válidos" });
     }
     
-    await ecommerceService.updateCarruselVariantes(id, productos);
+    await ecommerceService.updateCarruselProductos(id, productos);
     res.json({ 
       message: "Productos del carrusel actualizados exitosamente",
       productosActualizados: productos.length
     });
   } catch (error) {
-    console.error("Error en updateCarruselVariantes:", error);
+    console.error("Error en updateCarruselProductos:", error);
     
     if (error.message.includes("no encontrado") || error.message.includes("inactivo")) {
       return res.status(404).json({ error: error.message });
@@ -159,88 +159,6 @@ const getProductoCategorias = async (req, res) => {
   }
 };
 
-const getProductoTipos = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tipos = await ecommerceService.getProductoTipos(id);
-    res.json(tipos);
-  } catch (error) {
-    console.error("Error en getProductoTipos:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getProductoVariantes = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const variantes = await ecommerceService.getProductoVariantes(id);
-    res.json(variantes);
-  } catch (error) {
-    console.error("Error en getProductoVariantes:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getVarianteImagenes = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const imagenes = await ecommerceService.getVarianteImagenes(id);
-    res.json(imagenes);
-  } catch (error) {
-    console.error("Error en getVarianteImagenes:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getColorDisenio = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validar ID
-    if (!id || id === "null" || id === "undefined") {
-      return res.status(200).json({ 
-        idcolor_disenio: null, 
-        nombre: "Sin color", 
-        estado: 0 
-      });
-    }
-    
-    // Intentar parsear ID
-    let numericId;
-    try {
-      numericId = parseInt(id);
-      if (isNaN(numericId)) {
-        return res.status(200).json({ 
-          idcolor_disenio: null, 
-          nombre: "Sin color", 
-          estado: 0 
-        });
-      }
-    } catch (parseError) {
-      return res.status(200).json({ 
-        idcolor_disenio: null, 
-        nombre: "Sin color", 
-        estado: 0 
-      });
-    }
-    
-    // Llamar al servicio
-    const color = await ecommerceService.getColorDisenio(numericId);
-    
-    // Siempre retornar 200, incluso si el servicio retorna color por defecto
-    res.status(200).json(color);
-    
-  } catch (error) {
-    console.error("Error en getColorDisenio controller:", error);
-    
-    // En caso de error inesperado, retornar color por defecto
-    res.status(200).json({ 
-      idcolor_disenio: null, 
-      nombre: "Error al obtener color", 
-      estado: 0 
-    });
-  }
-};
 const searchProductos = async (req, res) => {
   try {
     const { q } = req.query;
@@ -262,14 +180,10 @@ module.exports = {
   createCarrusel,
   updateCarrusel,
   deleteCarrusel,
-  getCarruselVariantes,
-  addCarruselVariantes,
-  updateCarruselVariantes,
+  getCarruselProductos,
+  addCarruselProductos,
+  updateCarruselProductos,
   getProductos,
   getProductoCategorias,
-  getProductoTipos,
-  getProductoVariantes,
-  getVarianteImagenes,
-  getColorDisenio,
   searchProductos
 };
