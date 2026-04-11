@@ -69,13 +69,37 @@ const productsService = {
           }
         }
 
-        // Obtener productos similares
+        // Obtener productos similares (con relaciones transitivas)
         const similaresResult = await query(
           `
-          SELECT p.idproducto, p.nombre
-          FROM productos_similares ps
-          JOIN productos p ON ps.idproducto_similar = p.idproducto
-          WHERE ps.idproducto = $1 AND p.estado = 0
+          WITH RECURSIVE similar_products AS (
+            -- Relaciones directas
+            SELECT DISTINCT 
+              CASE 
+                WHEN idproducto = $1::integer THEN idproducto_similar
+                WHEN idproducto_similar = $1::integer THEN idproducto
+              END as idproducto_relacionado
+            FROM productos_similares
+            WHERE idproducto = $1::integer OR idproducto_similar = $1::integer
+            
+            UNION
+            
+            -- Relaciones transitivas
+            SELECT DISTINCT
+              CASE 
+                WHEN ps.idproducto = sp.idproducto_relacionado THEN ps.idproducto_similar
+                WHEN ps.idproducto_similar = sp.idproducto_relacionado THEN ps.idproducto
+              END
+            FROM productos_similares ps
+            INNER JOIN similar_products sp ON 
+              ps.idproducto = sp.idproducto_relacionado OR 
+              ps.idproducto_similar = sp.idproducto_relacionado
+          )
+          SELECT DISTINCT p.idproducto, p.nombre
+          FROM similar_products sp
+          JOIN productos p ON sp.idproducto_relacionado = p.idproducto
+          WHERE p.estado = 0 AND p.idproducto != $1::integer
+          ORDER BY p.nombre
         `,
           [producto.idproducto],
         );
@@ -103,7 +127,6 @@ const productsService = {
     return productos;
   },
 
-  // Buscar productos por término
   buscarProductos: async (termino) => {
     const result = await query(
       `
@@ -145,13 +168,37 @@ const productsService = {
           }
         }
 
-        // Obtener productos similares
+        // Obtener productos similares (con relaciones transitivas)
         const similaresResult = await query(
           `
-          SELECT p.idproducto, p.nombre
-          FROM productos_similares ps
-          JOIN productos p ON ps.idproducto_similar = p.idproducto
-          WHERE ps.idproducto = $1 AND p.estado = 0
+          WITH RECURSIVE similar_products AS (
+            -- Relaciones directas
+            SELECT DISTINCT 
+              CASE 
+                WHEN idproducto = $1::integer THEN idproducto_similar
+                WHEN idproducto_similar = $1::integer THEN idproducto
+              END as idproducto_relacionado
+            FROM productos_similares
+            WHERE idproducto = $1::integer OR idproducto_similar = $1::integer
+            
+            UNION
+            
+            -- Relaciones transitivas
+            SELECT DISTINCT
+              CASE 
+                WHEN ps.idproducto = sp.idproducto_relacionado THEN ps.idproducto_similar
+                WHEN ps.idproducto_similar = sp.idproducto_relacionado THEN ps.idproducto
+              END
+            FROM productos_similares ps
+            INNER JOIN similar_products sp ON 
+              ps.idproducto = sp.idproducto_relacionado OR 
+              ps.idproducto_similar = sp.idproducto_relacionado
+          )
+          SELECT DISTINCT p.idproducto, p.nombre
+          FROM similar_products sp
+          JOIN productos p ON sp.idproducto_relacionado = p.idproducto
+          WHERE p.estado = 0 AND p.idproducto != $1::integer
+          ORDER BY p.nombre
         `,
           [producto.idproducto],
         );
@@ -220,13 +267,37 @@ const productsService = {
       }
     }
 
-    // Obtener productos similares
+    // Obtener productos similares (con relaciones transitivas)
     const similaresResult = await query(
       `
-      SELECT p.idproducto, p.nombre
-      FROM productos_similares ps
-      JOIN productos p ON ps.idproducto_similar = p.idproducto
-      WHERE ps.idproducto = $1 AND p.estado = 0
+      WITH RECURSIVE similar_products AS (
+        -- Relaciones directas
+        SELECT DISTINCT 
+          CASE 
+            WHEN idproducto = $1::integer THEN idproducto_similar
+            WHEN idproducto_similar = $1::integer THEN idproducto
+          END as idproducto_relacionado
+        FROM productos_similares
+        WHERE idproducto = $1::integer OR idproducto_similar = $1::integer
+        
+        UNION
+        
+        -- Relaciones transitivas
+        SELECT DISTINCT
+          CASE 
+            WHEN ps.idproducto = sp.idproducto_relacionado THEN ps.idproducto_similar
+            WHEN ps.idproducto_similar = sp.idproducto_relacionado THEN ps.idproducto
+          END
+        FROM productos_similares ps
+        INNER JOIN similar_products sp ON 
+          ps.idproducto = sp.idproducto_relacionado OR 
+          ps.idproducto_similar = sp.idproducto_relacionado
+      )
+      SELECT DISTINCT p.idproducto, p.nombre
+      FROM similar_products sp
+      JOIN productos p ON sp.idproducto_relacionado = p.idproducto
+      WHERE p.estado = 0 AND p.idproducto != $1::integer
+      ORDER BY p.nombre
     `,
       [id],
     );
@@ -250,6 +321,106 @@ const productsService = {
     };
 
     return productoProcesado;
+  },
+
+  // Función para crear relaciones transitivas completas
+  crearRelacionesTransitivas: async (client, productoIds) => {
+    if (!productoIds || productoIds.length < 2) return;
+
+    // Eliminar duplicados y asegurar que sean números
+    const idsUnicos = [...new Set(productoIds.map((id) => parseInt(id)))];
+
+    console.log(
+      `Creando relaciones transitivas para los IDs: ${idsUnicos.join(", ")}`,
+    );
+
+    // Crear todas las combinaciones posibles entre los productos (grafo completo)
+    for (let i = 0; i < idsUnicos.length; i++) {
+      for (let j = i + 1; j < idsUnicos.length; j++) {
+        const id1 = idsUnicos[i];
+        const id2 = idsUnicos[j];
+
+        if (id1 !== id2) {
+          // Verificar si la relación ya existe
+          const existe = await client.query(
+            "SELECT 1 FROM productos_similares WHERE (idproducto = $1 AND idproducto_similar = $2) OR (idproducto = $2 AND idproducto_similar = $1)",
+            [id1, id2],
+          );
+
+          if (existe.rows.length === 0) {
+            // Insertar relación bidireccional
+            await client.query(
+              "INSERT INTO productos_similares (idproducto, idproducto_similar) VALUES ($1, $2), ($2, $1)",
+              [id1, id2],
+            );
+            console.log(`Relación creada entre ${id1} y ${id2}`);
+          } else {
+            console.log(`Relación ya existente entre ${id1} y ${id2}`);
+          }
+        }
+      }
+    }
+  },
+
+  // Función para obtener todos los productos relacionados en un grupo
+  obtenerGrupoCompleto: async (client, productoId) => {
+    const id = parseInt(productoId);
+
+    // Obtener todas las relaciones donde participe este producto
+    const result = await client.query(
+      `
+      SELECT DISTINCT idproducto, idproducto_similar
+      FROM productos_similares
+      WHERE idproducto = $1 OR idproducto_similar = $1
+      `,
+      [id],
+    );
+
+    // Recopilar todos los IDs únicos del grupo
+    const idsRelacionados = new Set();
+    idsRelacionados.add(id);
+
+    for (const row of result.rows) {
+      idsRelacionados.add(row.idproducto);
+      idsRelacionados.add(row.idproducto_similar);
+    }
+
+    // Para cada nuevo ID, buscar más relaciones (profundidad)
+    let hayCambios = true;
+    while (hayCambios) {
+      hayCambios = false;
+      const idsActuales = Array.from(idsRelacionados);
+
+      for (const idActual of idsActuales) {
+        const nuevasRelaciones = await client.query(
+          `
+          SELECT DISTINCT idproducto, idproducto_similar
+          FROM productos_similares
+          WHERE idproducto = $1 OR idproducto_similar = $1
+          `,
+          [idActual],
+        );
+
+        for (const row of nuevasRelaciones.rows) {
+          if (!idsRelacionados.has(row.idproducto)) {
+            idsRelacionados.add(row.idproducto);
+            hayCambios = true;
+          }
+          if (!idsRelacionados.has(row.idproducto_similar)) {
+            idsRelacionados.add(row.idproducto_similar);
+            hayCambios = true;
+          }
+        }
+      }
+    }
+
+    // Remover el producto original del resultado
+    const resultado = Array.from(idsRelacionados).filter(
+      (idItem) => idItem !== id,
+    );
+    console.log(`Grupo completo para producto ${id}: ${resultado.join(", ")}`);
+
+    return resultado;
   },
 
   createProducto: async (productoData, imagenFile) => {
@@ -298,19 +469,16 @@ const productsService = {
         }
       }
 
-      // Insertar productos similares
+      // Crear relaciones transitivas completas
       if (
         productoData.productos_similares &&
         productoData.productos_similares.length > 0
       ) {
-        for (const idSimilar of productoData.productos_similares) {
-          if (idSimilar !== producto.idproducto) {
-            await client.query(
-              "INSERT INTO productos_similares (idproducto, idproducto_similar) VALUES ($1, $2)",
-              [producto.idproducto, idSimilar],
-            );
-          }
-        }
+        const todosIds = [
+          producto.idproducto,
+          ...productoData.productos_similares,
+        ];
+        await productsService.crearRelacionesTransitivas(client, todosIds);
       }
 
       await client.query("COMMIT");
@@ -399,23 +567,32 @@ const productsService = {
         }
       }
 
-      // Actualizar productos similares
-      await client.query(
-        "DELETE FROM productos_similares WHERE idproducto = $1",
-        [id],
+      // Obtener el grupo completo de productos relacionados actualmente
+      const grupoActual = await productsService.obtenerGrupoCompleto(
+        client,
+        id,
       );
+      const todosIdsActuales = [id, ...grupoActual];
+
+      // Eliminar todas las relaciones existentes del grupo completo
+      for (const productoId of todosIdsActuales) {
+        await client.query(
+          "DELETE FROM productos_similares WHERE idproducto = $1 OR idproducto_similar = $1",
+          [productoId],
+        );
+      }
+
+      console.log(
+        `Eliminadas relaciones para el grupo: ${todosIdsActuales.join(", ")}`,
+      );
+
+      // Crear nuevas relaciones con los productos similares seleccionados
       if (
         productoData.productos_similares &&
         productoData.productos_similares.length > 0
       ) {
-        for (const idSimilar of productoData.productos_similares) {
-          if (idSimilar !== id) {
-            await client.query(
-              "INSERT INTO productos_similares (idproducto, idproducto_similar) VALUES ($1, $2)",
-              [id, idSimilar],
-            );
-          }
-        }
+        const nuevosIds = [id, ...productoData.productos_similares];
+        await productsService.crearRelacionesTransitivas(client, nuevosIds);
       }
 
       await client.query("COMMIT");
