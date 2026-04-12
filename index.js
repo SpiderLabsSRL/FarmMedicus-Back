@@ -27,6 +27,7 @@ const ecommerceRoutes = require('./src/routes/ecommerceRoutes');
 // Lista de orígenes permitidos
 const allowedOrigins = [
   "http://localhost:8080",
+  "http://localhost:3000",
   "https://neoled-bolivia.netlify.app",
   "https://neoledback-v5c6.onrender.com",
 ];
