@@ -166,9 +166,7 @@ const searchProductos = async (searchTerm) => {
      WHERE p.estado = 0 
        AND (p.nombre ILIKE $1 
          OR p.descripcion ILIKE $1
-         OR c.nombre ILIKE $1
-         OR t.nombre ILIKE $1
-         OR cd.nombre ILIKE $1)
+         OR c.nombre ILIKE $1)
      ORDER BY p.idproducto DESC
      LIMIT 50`,
     [searchPattern]
